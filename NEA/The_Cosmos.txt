@@ -1,0 +1,11 @@
+Question - Answer Data Model
+In which structure are the particles arranged regularly and packed closely in?
+Solid,Liquid,Gas,Ionic structure,1
+What colour do potassium ions go in a flame test?
+Yellow,Brick red,Blue,Lilac,4
+What is the energy motion that depends on speed and mass?
+Potential energy,Kinetic energy,Energy,Chemical energy,2
+How do group 7 elements exist?
+Only in compounds,As single atoms,As diatomic molecules,Only in ionic compounds,3
+What name is given to group 1 elements?
+The noble gases,Alkali metals,The halogens,The transition metals,2
