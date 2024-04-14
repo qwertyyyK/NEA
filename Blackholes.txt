@@ -1,0 +1,13 @@
+Question - Answer Data Model
+What is a black hole?
+A bright star in space,A place in space where gravity pulls things in,A spaceship that explores other galaxies, A
+type of asteroid,2
+What happens to things that get too close to a black hole?
+They turn into colourful lights,They bounce off the black hole's surface,They get pulled into the black hole,They
+become invisible,3
+What is the boundary around a black hole called where nothing can escape from it?
+Space Limit,Event Horizon,Galactic Barrier,Celestial Boundary,2
+What happens to time near a black hole?
+Time speeds up,Time stays the same,Time slows down,Time reverses,3
+Who is the famous scientist known for his work on black holes and wrote books like "A Brief History of Time"?
+Isaac Newton,Galileo Galilei,Albert Einstein,Stephen Hawking,4

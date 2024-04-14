@@ -1,0 +1,11 @@
+Question - Answer Data Model
+What is a star primarily made of?
+Gas and dust,Rocks and minerals,Water and ice,Wood and metal,1
+What is the closest star to Earth?
+The Moon,Proxima Centauri,The Sun,Sirius,3
+What is the process by which a star produces energy?
+Photosynthesis,Combustion,Nuclear fusion,Chemical reaction,3
+Which star is at the center of our solar system?
+Betelgeuse,Proxima Centauri,The Sun,Sirius,3
+What do we call the bright, glowing objects in the night sky that we see as tiny points of light?
+Planets,Satellites,Stars,Comets,3
