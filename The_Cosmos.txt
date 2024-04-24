@@ -5,8 +5,7 @@ What is the name of the theory that explains the origin of the universe with a b
 Big Bang Theory,Black Hole Theory,Steady State Theory,Galaxy Formation Theory,1
 What is the invisible substance in the universe that makes up most of its mass and holds galaxies together?
 Dark Energy,Cosmic Dust,Dark Matter,Antimatter,3
-Which phenomenon describes the redshift of light from distant galaxies, indicating that the universe is
-expanding?
+Which phenomenon describes the redshift of light from distant galaxies, indicating that the universe is expanding?
 Blueshift,Green Shift,Redshift,White Shift,3
 How old is the estimated age of the universe?
 4.5 billion years,13.8 billion years,1 billion years,100 billion years,2
