@@ -1,8 +1,47 @@
 # Import necessary modules from tkinter and other libraries
 from tkinter import messagebox, Tk, Toplevel, StringVar, Label, Entry, Button, Radiobutton, IntVar, Canvas, Frame, ttk
-import sqlite3
 import os
 import bcrypt
+import mysql.connector
+
+# Connect to the database
+db = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    passwd="kareem2478",
+    database="myDB"
+)
+
+# Create a cursor object using the connection
+mycursor = db.cursor()
+
+# SQL statement to create a 'users' table, if it doesn't already exist
+create_users_table = """
+CREATE TABLE IF NOT EXISTS users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_secure VARCHAR(255) NOT NULL
+);
+"""
+
+# SQL statement to create a 'scores' table, if it doesn't already exist
+create_scores_table = """
+CREATE TABLE IF NOT EXISTS scores (
+    score_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    score INT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+"""
+
+# Execute the SQL statements
+mycursor.execute(create_users_table)
+mycursor.execute(create_scores_table)
+
+# Commit the changes to the database
+db.commit()
+
+print("Tables created successfully.")
 
 
 # Define a global variable for the file name
@@ -187,12 +226,17 @@ class QuizApp:
 
             # Display registration success message
             Label(registering_screen, text="Registration Success", fg="green", font=("calibri", 11)).pack()
-            conn = sqlite3.connect('database.db')
-            cursor = conn.cursor()
-            cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username_info, hashed_password))
-            conn.commit()
+            db = mysql.connector.connect(
+                        host="localhost",
+                        user="root",
+                        passwd="kareem2478",
+                        database="myDB"
+                    )
+            mycursor = db.cursor()
+            mycursor.execute('INSERT INTO users (username, password) VALUES (%s, %s)', (username_info, hashed_password))
+            db.commit()
             print(f"User '{username_info}' added to the database.")
-            conn.close()
+            mycursor.close()
             break
 
 
@@ -273,16 +317,16 @@ class QuizApp:
        assignments.destroy()
        repeat = True
        # Determine the file to use based on the selected topic
-       if str(f) == "<_io.TextIOWrapper name='Planets.txt' mode='r' encoding='cp1252'>":
+       if str(f) == "<_io.TextIOWrapper name='Planets.txt' mode='r' encoding='UTF-8'>": #Encoding should be cp1252 for windows
            f = open("Planets.txt")
            file = "Planets.txt"
-       elif str(f) == "<_io.TextIOWrapper name='Stars.txt' mode='r' encoding='cp1252'>":
+       elif str(f) == "<_io.TextIOWrapper name='Stars.txt' mode='r' encoding='UTF-8'>":
            f = open("Stars.txt")
            file = "Stars.txt"
-       elif str(f) == "<_io.TextIOWrapper name='Blackholes.txt' mode='r' encoding='cp1252'>":
+       elif str(f) == "<_io.TextIOWrapper name='Blackholes.txt' mode='r' encoding='UTF-8'>":
            f = open("Blackholes.txt")
            file = "Blackholes.txt"
-       elif str(f) == "<_io.TextIOWrapper name='The_Cosmos.txt' mode='r' encoding='cp1252'>":
+       elif str(f) == "<_io.TextIOWrapper name='The_Cosmos.txt' mode='r' encoding='UTF-8'>":
            f = open("The_Cosmos.txt")
            file = "The_Cosmos.txt"
        content = f.readlines()
