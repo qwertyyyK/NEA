@@ -4,23 +4,33 @@ import os
 import bcrypt
 import mysql.connector
 
-# Connect to the database
+# Connect to MySQL
 db = mysql.connector.connect(
     host="localhost",
     user="root",
     passwd="kareem2478",
-    database="myDB"
 )
 
 # Create a cursor object using the connection
 mycursor = db.cursor()
+
+
+create_database= """
+CREATE DATABASE IF NOT EXISTS myDB;"""
+
+main_schema= """USE myDB;"""
+
+
+# Create the database, if it doesn't exist
+mycursor.execute(create_database)
+mycursor.execute(main_schema)
 
 # SQL statement to create a 'users' table, if it doesn't already exist
 create_users_table = """
 CREATE TABLE IF NOT EXISTS users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
-    password_secure VARCHAR(255) NOT NULL
+    password VARCHAR(255) NOT NULL
 );
 """
 
@@ -41,7 +51,6 @@ mycursor.execute(create_scores_table)
 # Commit the changes to the database
 db.commit()
 
-print("Tables created successfully.")
 
 
 # Define a global variable for the file name
@@ -65,11 +74,11 @@ class QuizApp:
        # Create the main application window
        self.first_screen = Tk()
        self.first_screen.geometry("300x250")
-       self.first_screen.title("Login:")
+       self.first_screen.title("Quiz")
 
 
        # Create and display labels and buttons on the main screen
-       Label(self.first_screen, text="Login Screen", width="300", height="2", font=("Blackadder ITC", 25)).pack()
+       Label(self.first_screen, text="Quiz app", width="300", height="2", font=("Blackadder ITC", 25)).pack()
        Label(self.first_screen, text="").pack()
        Button(self.first_screen, text="Login", height="2", bg="medium spring green", width="30",
               command=self.login).pack()
@@ -169,106 +178,89 @@ class QuizApp:
        self.register_user()
 
    def login_verify(self):
-    # Verify user login credentials
-    username1 = self.username_verify.get()
-    password1 = self.password_verify.get().encode('utf-8')  # encode the password to bytes
-    self.name = username1
+    username = self.username_verify.get()
+    password = self.password_verify.get().encode('utf-8')
 
-    try:
-        # Open the file containing the user credentials
-        file1 = open(username1, "r")
-        verify = file1.read().splitlines()
-        user_hash = verify[1].encode()  # the password hash stored in file needs to be bytes
+    # Fetch user details
+    mycursor.execute("SELECT user_id, password FROM users WHERE username = %s", (username,))
+    result = mycursor.fetchone()
 
-        # Check the password against the hashed password
-        if bcrypt.checkpw(password1, user_hash):
-            self.login_success()
+    if result:
+        user_id, user_hash = result
+        user_hash = user_hash.encode()
+
+        if bcrypt.checkpw(password, user_hash):
+            self.user_id = user_id  # Store the user ID for session management
+            self.login_success(user_id)
         else:
             self.password_not_recognised()
-    except FileNotFoundError:
+    else:
         self.user_not_found()
 
 
 
+
+
    def register_user(self):
-    # Register a new user
     username_info = self.username.get()
-    password_info = self.password.get().encode('utf-8')  # encode the password to bytes
-    list_of_files = os.listdir()
+    password_info = self.password.get().encode('utf-8')
+    
+    if username_info == password_info.decode():
+        messagebox.showerror("Error", "Username and password cannot be the same")
+        return
+    # Check if the fields are empty
+    if not username_info or not password_info:
+        messagebox.showerror("Error", "Please fill in all fields")
+        return
 
-    for i in range(1):
-        if not username_info or not password_info:
-            registering_screen.destroy()
-            messagebox.showerror("Error", "Blank Entries!")
-            self.register()
-        elif username_info == password_info.decode():
-            registering_screen.destroy()
-            messagebox.showerror("Error", "Username and Password can't be the same")
-            self.register()
-        elif username_info in list_of_files:
-            registering_screen.destroy()
-            messagebox.showerror("Error", "Username already taken!")
-            self.register()
+    # Check if the password meets the requirements
+    if len(password_info) < 8 or not any(char.isupper() for char in password_info.decode()):
+        messagebox.showerror("Error", "Password must be at least 8 characters long and include an uppercase letter")
+        return
 
-        # Checks if the user entered a password with less than 8 characters or without an uppercase letter
-        elif len(password_info) < 8 or not any(char.isupper() for char in password_info.decode()):
-            registering_screen.destroy()
-            messagebox.showerror("Error", "Password has to be 8 characters or more and must contain at least 1 uppercase letter!")
-            self.register()
-        else:
-            # Generate a salt and hash the password
-            hashed_password = bcrypt.hashpw(password_info, bcrypt.gensalt())
-            print(hashed_password)
-            file = open(username_info, "w")
-            file.write(username_info + "\n")
-            file.write(hashed_password.decode())  # store the hash as a string
-            file.close()
+    # Check if username already exists
+    mycursor.execute("SELECT * FROM users WHERE username = %s", (username_info,))
+    if mycursor.fetchone() is not None:
+        messagebox.showerror("Error", "Username already taken!")
+        return
 
-            # Display registration success message
-            Label(registering_screen, text="Registration Success", fg="green", font=("calibri", 11)).pack()
-            db = mysql.connector.connect(
-                        host="localhost",
-                        user="root",
-                        passwd="kareem2478",
-                        database="myDB"
-                    )
-            mycursor = db.cursor()
-            mycursor.execute('INSERT INTO users (username, password) VALUES (%s, %s)', (username_info, hashed_password))
-            db.commit()
-            print(f"User '{username_info}' added to the database.")
-            mycursor.close()
-            break
+    # Hash the password
+    hashed_password = bcrypt.hashpw(password_info, bcrypt.gensalt()).decode('utf-8')
+
+    # Insert new user into database
+    try:
+        mycursor.execute("INSERT INTO users (username, password) VALUES (%s, %s)", (username_info, hashed_password))
+        db.commit()
+        messagebox.showinfo("Success", "Registration successful!")
+    except mysql.connector.Error as err:
+        messagebox.showerror("Error", f"Failed to register user: {err}")
+        db.rollback()
 
 
-   def login_success(self):
-       # Show a success message upon successful login
-       login_success_screen = Toplevel(self.first_screen)
-       login_success_screen.title("Success")
-       login_success_screen.geometry("150x100")
-       Label(login_success_screen, text="Successfully logged in").pack()
-       Button(login_success_screen, text="OK", command=login_success_screen.destroy).pack()
-       self.first_screen.destroy()
-       self.menu()
+
+   def login_success(self,user_id):
+       
+        # Show a success message upon successful login
+        login_success_screen = Toplevel(self.first_screen)
+        login_success_screen.title("Success")
+        login_success_screen.geometry("150x100")
+        Label(login_success_screen, text="Successfully logged in").pack()
+        Button(login_success_screen, text="OK", command=login_success_screen.destroy).pack()
+        self.first_screen.destroy()
+        self.menu()
 
 
    # Define a method to handle an invalid password
    def password_not_recognised(self):
        # Create a new window for displaying an error message
-       password_not_recognised_screen = Toplevel(self.first_screen)
-       password_not_recognised_screen.title("Error")
-       password_not_recognised_screen.geometry("150x100")
-       Label(password_not_recognised_screen, text="Incorrect Password ").pack()
-       Button(password_not_recognised_screen, text="OK", command=password_not_recognised_screen.destroy).pack()
+       messagebox.showerror("Error, Incorrect password")
+
 
 
    # Define a method to handle a user not found error
    def user_not_found(self):
        # Create a new window for displaying an error message
-       unknown_user_screen = Toplevel(self.first_screen)
-       unknown_user_screen.title("Error")
-       unknown_user_screen.geometry("150x100")
-       Label(unknown_user_screen, text="Error, User Not Found").pack()
-       Button(unknown_user_screen, text="OK", command=unknown_user_screen.destroy).pack()
+       messagebox.showerror("Error", "Username doesn't exist")
 
 
    # Define a method to create the main menu
@@ -317,16 +309,16 @@ class QuizApp:
        assignments.destroy()
        repeat = True
        # Determine the file to use based on the selected topic
-       if str(f) == "<_io.TextIOWrapper name='Planets.txt' mode='r' encoding='UTF-8'>": #Encoding should be cp1252 for windows
+       if str(f) == "<_io.TextIOWrapper name='Planets.txt' mode='r' encoding='cp1252'>": #Encoding should be cp1252 for windows
            f = open("Planets.txt")
            file = "Planets.txt"
-       elif str(f) == "<_io.TextIOWrapper name='Stars.txt' mode='r' encoding='UTF-8'>":
+       elif str(f) == "<_io.TextIOWrapper name='Stars.txt' mode='r' encoding='cp1252'>":
            f = open("Stars.txt")
            file = "Stars.txt"
-       elif str(f) == "<_io.TextIOWrapper name='Blackholes.txt' mode='r' encoding='UTF-8'>":
+       elif str(f) == "<_io.TextIOWrapper name='Blackholes.txt' mode='r' encoding='cp1252'>":
            f = open("Blackholes.txt")
            file = "Blackholes.txt"
-       elif str(f) == "<_io.TextIOWrapper name='The_Cosmos.txt' mode='r' encoding='UTF-8'>":
+       elif str(f) == "<_io.TextIOWrapper name='The_Cosmos.txt' mode='r' encoding='cp1252'>":
            f = open("The_Cosmos.txt")
            file = "The_Cosmos.txt"
        content = f.readlines()
@@ -364,11 +356,11 @@ class QuizApp:
     # Evaluate the current answer
     correct_answer = content[2 * (self.count + 1)].split(",")[4].strip()
     if var1.get() == correct_answer:
-        self.mark.append(20)
+        self.mark.append(20)  # Each correct answer adds 20 points
 
-    # Move to the next question
     self.count += 1
 
+    # Check if it's the end of the quiz
     if self.count < 5:
         # Update the question and answers for the next quiz item
         var.set(content[1 + self.count * 2].strip())
@@ -378,16 +370,19 @@ class QuizApp:
         button3.config(text=options[2])
         button4.config(text=options[3])
     else:
-        # After the last question, finalize the quiz and display results
+        # After the last question, insert the total score into the database and display results
+        total_score = sum(self.mark)
+        try:
+            mycursor.execute("INSERT INTO scores (user_id, score) VALUES (%s, %s)", (self.user_id, total_score))
+            db.commit()
+        except mysql.connector.Error as err:
+            messagebox.showerror("Database Error", f"Failed to insert score: {err}")
+            db.rollback()
+
+        # Display the total score and close the quiz window
         self.delete_quiz()
-        if var1.get() == content[2 * (5)].split(",")[4][:-1]:
-               self.mark.append(20)
-        list_of_files = os.listdir()
-        if self.name in list_of_files:
-               f = open(self.name, "a+")
-               f.write("\n" + str(sum(self.mark)))
-               f.close()
-        self.submit_scores()
+        self.submit_scores(total_score)
+
 
    def delete_quiz(self):
         if quiz:
@@ -396,12 +391,12 @@ class QuizApp:
 
 
    # Define a method to display the submitted score
-   def submit_scores(self):
+   def submit_scores(self, total_score):
        self.after_quiz = Tk()
        self.after_quiz.geometry("350x250")
        self.after_quiz.title("Submitted Mark")
        Label(self.after_quiz, text="Thank You, your score is:", width="300", height="2", font=("Calibri", 13)).pack()
-       Label(self.after_quiz, text=str(sum(self.mark)) + "%", width="300", height="2", font=("Calibri", 13)).pack()
+       Label(self.after_quiz, text=str(total_score) + "%", width="300", height="2", font=("Calibri", 13)).pack()
        Label(self.after_quiz, text="Your score will update now with the database", width="300", height="2",
              font=("Calibri", 13)).pack()
        #Button to allow the user to return to the dashboard
@@ -413,29 +408,32 @@ class QuizApp:
     
     self.after_quiz.destroy()
     self.menu()
+    
+    # Extract scores from query results
 
+   def fetch_scores(self, user_id):
+    mycursor.execute("SELECT score FROM scores WHERE user_id = %s ORDER BY score_id DESC", (user_id,))
+    scores = mycursor.fetchall()
+    return [score[0] for score in scores]  
+   
    # Define a method to display a summary of previous scores
    def summary(self):
-    with open(self.name, "r") as file1:
-        scores = file1.read().splitlines()
-    previous_scores = [int(score) for score in scores[::-1][:-2]]
-    total_sum = sum(previous_scores)
-    number_of_previous_scores = len(previous_scores)
-    average = round(total_sum / number_of_previous_scores, 2) if number_of_previous_scores > 0 else 0
 
+    scores = self.fetch_scores(self.user_id)
+    average = sum(scores) / len(scores) if scores else 0
     summary_window = Toplevel()
     summary_window.geometry("600x400")
     summary_window.title("Analytics")
-
+    
     Label(summary_window, text="Sort by:", width=10, height=2, font=("Calibri", 12)).pack(side="top", anchor='nw')
 
     self.sort_var = StringVar()
     sort_options = ttk.Combobox(summary_window, width=10, textvariable=self.sort_var)
     sort_options['values'] = ('Ascending', 'Descending')
     sort_options.pack(side="top", anchor='nw')
-    sort_options.bind("<<ComboboxSelected>>", lambda event: self.update_display(previous_scores, summary_window, average))
+    sort_options.bind("<<ComboboxSelected>>", lambda event: self.update_display(scores, summary_window, average))
 
-    self.update_display(previous_scores, summary_window, average)
+    self.update_display(scores, summary_window, average)
 
     # This method will be used for ordering the scores according to the user's choice
    def merge_sort(self, scores, ascending=True):
@@ -443,10 +441,9 @@ class QuizApp:
     if len(scores) > 1:
         # Find the midpoint of the list to divide it into two halves.
         mid = len(scores) // 2
-        left_half = scores[:mid]  # Create the left half from start to midpoint.
-        right_half = scores[mid:]  # Create the right half from midpoint to end.
+        left_half = scores[:mid]  
+        right_half = scores[mid:]  
 
-        # Recursively sort both halves. The recursion will continue until the sublists have 1 element each.
         self.merge_sort(left_half, ascending)
         self.merge_sort(right_half, ascending)
 
@@ -476,7 +473,7 @@ class QuizApp:
             j += 1
             k += 1
 
-    # Return the sorted list. This return is particularly for the top-level call to receive the final sorted list.
+    
     return scores
 
 
@@ -492,7 +489,7 @@ class QuizApp:
             font=("Calibri", 13)).pack()
         Label(window, text=sorted_scores, width="300", height="2", font=("Calibri", 13)).pack()
         Label(window, text="The average score is:", width="300", height="2", font=("Calibri", 13)).pack()
-        Label(window, text=str(average) + "%", width="300", height="2", font=("Calibri", 13)).pack()
+        Label(window, text=f"{average:.2f}%", width="300", height="2", font=("Calibri", 13)).pack()
         
         # Re-create the graph frame for displaying the scores graphically
         graph_frame = Frame(window)
