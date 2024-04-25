@@ -4,13 +4,46 @@ import os
 import bcrypt
 import mysql.connector
 
+# Connect to the database
 db = mysql.connector.connect(
     host="localhost",
     user="root",
     passwd="kareem2478",
     database="myDB"
 )
+
+# Create a cursor object using the connection
 mycursor = db.cursor()
+
+# SQL statement to create a 'users' table, if it doesn't already exist
+create_users_table = """
+CREATE TABLE IF NOT EXISTS users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) UNIQUE NOT NULL,
+    password_secure VARCHAR(255) NOT NULL
+);
+"""
+
+# SQL statement to create a 'scores' table, if it doesn't already exist
+create_scores_table = """
+CREATE TABLE IF NOT EXISTS scores (
+    score_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT,
+    score INT,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)
+);
+"""
+
+# Execute the SQL statements
+mycursor.execute(create_users_table)
+mycursor.execute(create_scores_table)
+
+# Commit the changes to the database
+db.commit()
+
+print("Tables created successfully.")
+
+
 # Define a global variable for the file name
 file = "FILE NAME"
 
@@ -200,7 +233,7 @@ class QuizApp:
                         database="myDB"
                     )
             mycursor = db.cursor()
-            mycursor.execute('INSERT INTO users (username, password_secure) VALUES (%s, %s)', (username_info, hashed_password))
+            mycursor.execute('INSERT INTO users (username, password) VALUES (%s, %s)', (username_info, hashed_password))
             db.commit()
             print(f"User '{username_info}' added to the database.")
             mycursor.close()
