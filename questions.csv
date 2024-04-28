@@ -1,0 +1,31 @@
+question_id,quiz_id,question_text,option_1,option_2,option_3,option_4,correct_option
+1,1,"What is the largest planet in our solar system?",Earth,Mars,Jupiter,Venus,3
+2,1,"Which planet is known as the "Red Planet" due to its reddish appearance?",Mercury,Saturn,Uranus,Mars,4
+3,1,"What is the closest planet to the Sun in our solar system?",Venus,Mercury,Earth,Mars,2
+4,1,"Which planet has the famous rings around it?",Jupiter,Mars,Saturn,Neptune,3
+5,1,"Which planet is known for its beautiful blue color and is often called the "Blue Planet"?",Uranus,Earth,Neptune,Venus,2
+6,2,"What is a star primarily made of?","Gas and dust","Rocks and minerals","Water and ice","Wood and metal",1
+7,2,"What is the closest star to Earth?","The Moon","Proxima Centauri","The Sun",Sirius,3
+8,2,"What is the process by which a star produces energy?",Photosynthesis,Combustion,"Nuclear fusion","Chemical reaction",3
+9,2,"Which star is at the center of our solar system?",Betelgeuse,"Proxima Centauri","The Sun",Sirius,3
+10,2,"What do we call the bright, glowing objects in the night sky that we see as tiny points of light?",Planets,Satellites,Stars,Comets,3
+11,3,"What is a black hole?","A bright star in space","A place in space where gravity pulls things in","A spaceship that explores other galaxies","A type of asteroid",2
+12,3,"What happens to things that get too close to a black hole?","They turn into colourful lights","They bounce off the black hole's surface","They get pulled into the black hole","They become invisible",3
+13,3,"What is the boundary around a black hole called where nothing can escape from it?","Space Limit","Event Horizon","Galactic Barrier","Celestial Boundary",2
+14,3,"What happens to time near a black hole?","Time speeds up","Time stays the same","Time slows down","Time reverses",3
+15,3,"Who is the famous scientist known for his work on black holes and wrote books like "A Brief History of Time"?","Isaac Newton","Galileo Galilei","Albert Einstein","Stephen Hawking",4
+16,4,"What is the most abundant gas in the Earth's atmosphere?",Oxygen,"Carbon Dioxide",Nitrogen,Hydrogen,3
+17,4,"What is the name of the theory that explains the origin of the universe with a big explosion?","Big Bang Theory","Black Hole Theory","Steady State Theory","Galaxy Formation Theory",1
+18,4,"What is the invisible substance in the universe that makes up most of its mass and holds galaxies together?","Dark Energy","Cosmic Dust","Dark Matter",Antimatter,3
+19,4,"Which phenomenon describes the redshift of light from distant galaxies, indicating that the universe is expanding?",Blueshift,"Green Shift",Redshift,"White Shift",3
+20,4,"How old is the estimated age of the universe?","4.5 billion years","13.8 billion years","1 billion years","100 billion years",2
+31,7,1,1,2,3,4,1
+32,7,2,1,2,3,4,2
+33,7,3,1,2,3,4,3
+34,7,4,1,2,3,4,4
+35,7,5,2,3,4,5,4
+36,8,12345143,2134,2134,2134,1234,1
+37,8,12342314,2134,2134,2134,2134,1
+38,8,12342134,21342134,2134,2134,2134,1
+39,8,12346542,34566,43564356,4356,3456,1
+40,8,765,543,213,6435,8769,1
