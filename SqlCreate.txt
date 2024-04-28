@@ -1,3 +1,7 @@
+CREATE DATABASE IF NOT EXISTS myDB;
+
+USE myDB;
+
 CREATE TABLE IF NOT EXISTS users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(255) UNIQUE NOT NULL,
@@ -11,7 +15,6 @@ CREATE TABLE IF NOT EXISTS scores (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 );  
 
--- Create 'questions' table
 CREATE TABLE quizzes (
     quiz_id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(255) NOT NULL
