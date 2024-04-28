@@ -1,3 +1,3 @@
-# SQL DATA
+#READ ME
 
-Before running mod.py, please execute the sql queries in sqlcreate.txt first, then import the data from .csv files into their respective tables
+NEA.py MUST be in the same directory as db_setup.py, help-icon.png, questions.csv and quizzes.csv
