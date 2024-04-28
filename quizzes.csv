@@ -1,7 +1,0 @@
-quiz_id,title,is_custom,is_public,user_id
-1,Planets,0,0,NULL
-2,Stars,0,0,NULL
-3,Blackholes,0,0,NULL
-4,"The Cosmos",0,0,NULL
-7,test,1,0,1
-8,12341234,1,1,1
