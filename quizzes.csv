@@ -1,0 +1,5 @@
+quiz_id,title,is_custom,is_public,user_id
+1,Planets,0,0,NULL
+2,Stars,0,0,NULL
+3,Blackholes,0,0,NULL
+4,The Cosmos,0,0,NULL
