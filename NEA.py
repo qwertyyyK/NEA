@@ -85,8 +85,11 @@ class QuizApp:
        self.previous_questions = []  # Stack to hold previous questions     
        self.current_question = None  # Current active question
        self.question_index = 0    
-       self.question_scores = []  
+       self.question_scores = []
 
+       self.quiz_title_id_map = {}  # Dictionary to map quiz titles to their IDs  
+
+       self.quiz_title = StringVar() 
 
        # Create and display labels and buttons on the main screen
        Label(self.master, text="Quiz App", width="300", height="2", font=("Blackadder ITC", 25)).pack()
@@ -270,7 +273,7 @@ class QuizApp:
    # Define a method to handle an invalid password
    def password_not_recognised(self):
        # Create a new window for displaying an error message
-       messagebox.showerror("Error, Incorrect password")
+       messagebox.showerror("Error," "Incorrect password")
 
 
 
@@ -356,8 +359,257 @@ class QuizApp:
         Button(self.manage_quizzes_window, text="Create New Quiz", height = "4", bg="LightCyan2", width = "60",command=self.create_new_quiz).pack()
         Label(self.manage_quizzes_window, text="").pack()
 
+        #Create a dropdown menu which will display the custom quizzes owned by the user
+        mycursor.execute("SELECT quiz_id, title FROM quizzes WHERE user_id = %s", (self.user_id,))
+        self.custom_quizzes = mycursor.fetchall()
+
+        # Define the quiz_combobox before calling fetch_and_setup_quiz_combobox
+        self.quiz_combobox = ttk.Combobox(self.manage_quizzes_window, state="readonly", width=27)
+        self.fetch_and_setup_quiz_combobox()  # Now you can safely call this method
+        self.quiz_combobox.pack(pady=5)
+        Label(self.manage_quizzes_window, text="").pack()
+
+        # Buttons for editing and deleting a quiz
+        Button(self.manage_quizzes_window, text="Edit selected quiz", height="2", bg="LightYellow2", width="30", command=self.edit_selected_quiz).pack()
+        Button(self.manage_quizzes_window, text="Delete selected quiz", height="2", bg="IndianRed1", width="30", command=self.delete_selected_quiz).pack()
+
+   def fetch_and_setup_quiz_combobox(self):
+         # Fetch quizzes from the database
+        mycursor.execute("SELECT quiz_id, title FROM quizzes WHERE user_id = %s", (self.user_id,))
+        self.custom_quizzes = mycursor.fetchall()
+
+    # Reset the dictionary mapping quiz titles to their ids
+        self.quiz_title_id_map = {}
+
+    # Create a list of titles for the Combobox, and populate the map
+        combobox_values = []
+        for quiz_id, title in self.custom_quizzes:
+        # Use the title as the key, and the quiz_id as the value
+            self.quiz_title_id_map[title] = quiz_id
+            combobox_values.append(title)
+
+    # Update the Combobox with these values
+        self.quiz_combobox['values'] = combobox_values
+        self.quiz_combobox.set('')
+
+    # Update the Combobox with these values
+        self.quiz_combobox['values'] = combobox_values
+        self.quiz_combobox.set('')
+
+   def fetch_quiz_data(self, quiz_id):
+    # Fetch the quiz details
+    try:
+        mycursor.execute("SELECT title, is_public FROM quizzes WHERE quiz_id = %s", (quiz_id,))
+        quiz_details = mycursor.fetchone()
+
+        mycursor.execute("SELECT question_id, question_text, option_1, option_2, option_3, option_4, correct_option FROM questions WHERE quiz_id = %s ORDER BY question_id ASC", (quiz_id,))
+        questions = mycursor.fetchall()
+
+        return (quiz_details, questions)
+    except mysql.connector.Error as err:
+        print(f"Database Error: {err}")
+        return None
+
+   def edit_selected_quiz(self):
+    selected_title = self.quiz_combobox.get()
+    if not selected_title:
+        messagebox.showinfo("Edit Quiz", "Please select a quiz to edit.")
+        return
+    
+    selected_quiz_id = self.quiz_title_id_map.get(selected_title)
+    if not selected_quiz_id:
+        messagebox.showinfo("Edit Quiz", "Please select a valid quiz to edit.")
+        return
+
+    quiz_data = self.fetch_quiz_data(selected_quiz_id)  # Call fetch_quiz_data here
+    if quiz_data:
+        self.editing_quiz_id = selected_quiz_id  # Set the quiz ID here
+        self.create_edit_quiz_window(quiz_data, selected_quiz_id)
+    else:
+        messagebox.showerror("Error", "Failed to fetch quiz data for editing.")
+
+   def create_edit_quiz_window(self, quiz_data, quiz_id):
+        quiz_details, questions = quiz_data
+        self.create_quiz_window = Toplevel(self.manage_quizzes_window)
+        self.create_quiz_window.geometry("1022x572")  
+        self.create_quiz_window.title("Edit Quiz")
+
+
+        # Initialize the StringVar and IntVar before setting their values
+        self.quiz_title = StringVar(self.create_quiz_window)
+        self.is_public_var = IntVar(self.create_quiz_window)
+    
+        self.quiz_title.set(quiz_details[0])
+        self.is_public_var.set(quiz_details[1])
+
+        Label(self.create_quiz_window, text="Quiz Title:").grid(row=0, column=0, columnspan=2)
+        Entry(self.create_quiz_window, textvariable=self.quiz_title).grid(row=0, column=2, sticky="ew", columnspan=8)
+
+
+        public_checkbutton = Checkbutton(
+            self.create_quiz_window,
+            text="Make this quiz public",
+            variable=self.is_public_var
+        )
+        public_checkbutton.grid(row=7, columnspan=10)
+
+        # This will create a ? icon where hovering 
+        help_image = Image.open("help-icon.png")
+        help_image.thumbnail((16, 16))  # ensure 'help-icon.png' is in the same folder
+        help_photo = ImageTk.PhotoImage(help_image)
+        help_label = Label(self.create_quiz_window, image=help_photo)
+        help_label.image = help_photo  # keep a reference to the image
+        help_label.grid(row=0, column=10, padx=5, pady=5)
+
+        # Create a tooltip for the help icon
+        tooltip_text = ("Enter the quiz title in the box on top.\n"
+                        "\n"
+                        "The first box in each row is for the question,\n"
+                        "The rest are for the options.\n"
+                        "\n"
+                        "Select the correct answer using the buttons on the right.\n"
+                        "For instance if the correct answer is option 2, select the button labeled '2'.")
+        ToolTip(help_label, text=tooltip_text)
+
+        self.questions = []  # Reset the questions list to populate with existing questions
+        for i, question_data in enumerate(questions):
+            question_id = question_data[0] 
+            Label(self.create_quiz_window, text=f"Q{i+1}:").grid(row=i+1, column=0)
+            question_entry = Entry(self.create_quiz_window)
+            question_entry.insert(0, question_data[0])  # Set question text
+            question_entry.grid(row=i+1, column=1, sticky="ew")
+
+            options = []
+            correct_answer_var = IntVar(self.create_quiz_window, value=question_data[-1])  # This should be unique for each question
+            for j in range(4):
+                option_entry = Entry(self.create_quiz_window)
+                option_entry.insert(0, question_data[j+1])  # Set option text
+                option_entry.grid(row=i+1, column=j+2, sticky="ew")
+                options.append(option_entry)
+
+        # Create a radio button for each option
+                Radiobutton(self.create_quiz_window, text=f"{j+1}", variable=correct_answer_var, value=j+1).grid(row=i+1, column=j+6)
+
+            self.questions.append((question_id, question_entry, options, correct_answer_var))
+
+        Button(self.create_quiz_window, text="Save Quiz", command=self.save_updated_quiz).grid(row=6, column=0, columnspan=10)
+
+        # Ensure all columns have the same weight so they distribute space evenly
+        for j in range(10):
+            self.create_quiz_window.grid_columnconfigure(j, weight=1)
+
+        # Adjust the window's row and column configuration for proper spacing
+        self.create_quiz_window.grid_rowconfigure(0, weight=1)
+        for i in range(1, 6):
+            self.create_quiz_window.grid_rowconfigure(i, weight=3)
+
+   def save_updated_quiz(self):
+    title = self.quiz_title.get()
+    is_public = self.is_public_var.get()  
+    quiz_id = self.editing_quiz_id
+
+    if not title:
+        messagebox.showerror("Error", "Please enter a quiz title.")
+        return
+
+    # Prepare data for update
+    question_data = []
+    for question_info in self.questions:
+        question_id, question_entry, options, correct_answer_var = question_info  # Unpack 4 values
+        question_text = question_entry.get()
+        if not question_text or not all(option.get() for option in options):
+            messagebox.showerror("Error", "Please fill in all fields for questions and options.")
+            return
+
+        correct_option = correct_answer_var.get()
+        if not correct_option:
+            messagebox.showerror("Error", "Please select a correct option for each question.")
+            return
+
+        option_texts = [option.get() for option in options]
+        question_data.append((question_id, question_text, option_texts, correct_option))
+
+    # Start a transaction
+    mycursor.execute("START TRANSACTION")
+
+    try:
+        # Update the quiz title and privacy
+        mycursor.execute("UPDATE quizzes SET title = %s, is_public = %s WHERE quiz_id = %s", (title, is_public, quiz_id))
+
+        # Update questions linked to the quiz_id using their question_id
+        for question_id, question_text, options, correct_option in question_data:
+            mycursor.execute("""
+                UPDATE questions SET question_text = %s, option_1 = %s, option_2 = %s, option_3 = %s, option_4 = %s, correct_option = %s
+                WHERE quiz_id = %s AND question_id = %s
+                """, (question_text, *options, correct_option, quiz_id, question_id))
+            print(question_id, question_text, options, correct_option, quiz_id)
+
+        # Commit the transaction if everything is successful
+        db.commit()
+        messagebox.showinfo("Success", "The quiz has been updated successfully.")
+    except mysql.connector.Error as err:
+        # Rollback if there are any errors
+        db.rollback()
+        messagebox.showerror("Database Error", f"Failed to update quiz: {err}")
+    finally:
+        # Close the quiz editing window
+        self.create_quiz_window.destroy()
+
+   def delete_selected_quiz(self):
+    # Get the selected quiz ID from the dropdown
+    selected_title = self.quiz_combobox.get()
+
+    # Check if a quiz is selected
+    if not selected_title:
+        messagebox.showinfo("Delete Quiz", "Please select a quiz to delete.")
+        return
+
+    selected_quiz_id = self.quiz_title_id_map.get(selected_title)
+    print(selected_title)
+
+
+    # Begin transaction
+    mycursor.execute("START TRANSACTION;")
+
+    try:
+        # Delete related scores
+        mycursor.execute("DELETE FROM scores WHERE quiz_id = %s", (selected_quiz_id,))
+        
+        # Delete related questions
+        mycursor.execute("DELETE FROM questions WHERE quiz_id = %s", (selected_quiz_id,))
+        
+        # Delete the quiz
+        mycursor.execute("DELETE FROM quizzes WHERE quiz_id = %s", (selected_quiz_id,))
+        
+        db.commit()
+        
+        self.update_quiz_combobox()
+
+        # Show confirmation message
+        messagebox.showinfo("Delete Quiz", "Quiz and associated data deleted successfully.")
+    except Exception as e:
+        # Rollback in case of error
+        db.rollback()
+        messagebox.showerror("Delete Quiz", f"An error occurred: {e}")
+
+   def update_quiz_combobox(self):
+
+    # Fetch updated list of quizzes
+    mycursor.execute("SELECT quiz_id, title FROM quizzes WHERE user_id = %s", (self.user_id,))
+    self.custom_quizzes = mycursor.fetchall()
+    
+    # Clear the previous map and repopulate it with the new values
+    self.quiz_title_id_map.clear()
+    for quiz_id, title in self.custom_quizzes:
+        self.quiz_title_id_map[title] = quiz_id
+
+    # Set the combobox to display only quiz titles
+    self.quiz_combobox['values'] = [title for _, title in self.custom_quizzes]
+    self.quiz_combobox.set('')        
+
 
         # This method will allow the user to make their own quiz
+
    def create_new_quiz(self):
         self.create_quiz_window = Toplevel(self.manage_quizzes_window)
         self.create_quiz_window.geometry("1022x572")  # Adjust size as needed
@@ -461,6 +713,7 @@ class QuizApp:
 
         # Commit the transaction if everything is successful
         db.commit()
+        self.update_quiz_combobox() #Update the dropdown menu
         messagebox.showinfo("Success", "The new quiz has been saved.")
     except mysql.connector.Error as err:
         messagebox.showerror("Database Error", f"Failed to save quiz: {err}")
@@ -468,7 +721,8 @@ class QuizApp:
         db.rollback()
     finally:
         # Close the quiz creation window
-        self.create_quiz_window.destroy()    
+        self.create_quiz_window.destroy()
+            
 
 
    def start_selected_custom_quiz(self):
