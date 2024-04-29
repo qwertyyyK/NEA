@@ -371,6 +371,7 @@ class QuizApp:
 
         # Buttons for editing and deleting a quiz
         Button(self.manage_quizzes_window, text="Edit selected quiz", height="2", bg="LightYellow2", width="30", command=self.edit_selected_quiz).pack()
+        Label(self.manage_quizzes_window, text="").pack()
         Button(self.manage_quizzes_window, text="Delete selected quiz", height="2", bg="IndianRed1", width="30", command=self.delete_selected_quiz).pack()
 
    def fetch_and_setup_quiz_combobox(self):
@@ -395,6 +396,23 @@ class QuizApp:
     # Update the Combobox with these values
         self.quiz_combobox['values'] = combobox_values
         self.quiz_combobox.set('')
+
+        # This method will be used to update the quiz combobox dynamically in the same window
+
+   def update_quiz_combobox(self):
+
+    # Fetch updated list of quizzes
+    mycursor.execute("SELECT quiz_id, title FROM quizzes WHERE user_id = %s", (self.user_id,))
+    self.custom_quizzes = mycursor.fetchall()
+    
+    # Clear the previous map and repopulate it with the new values
+    self.quiz_title_id_map.clear()
+    for quiz_id, title in self.custom_quizzes:
+        self.quiz_title_id_map[title] = quiz_id
+
+    # Set the combobox to display only quiz titles
+    self.quiz_combobox['values'] = [title for _, title in self.custom_quizzes]
+    self.quiz_combobox.set('')
 
    def fetch_quiz_data(self, quiz_id):
     # Fetch the quiz details
@@ -473,22 +491,27 @@ class QuizApp:
 
         self.questions = []  # Reset the questions list to populate with existing questions
         for i, question_data in enumerate(questions):
-            question_id = question_data[0] 
+            print(f"Debug: Question {i+1} data: {question_data}")  # This will print the question data
+            question_id = question_data[0]
+            question_text = question_data[1]  # index 1 for question_text
+            options_texts = question_data[2:6]  # options start from index 2 to 5
+            correct_answer = question_data[6]  # index 6 for correct_option
+
             Label(self.create_quiz_window, text=f"Q{i+1}:").grid(row=i+1, column=0)
             question_entry = Entry(self.create_quiz_window)
-            question_entry.insert(0, question_data[0])  # Set question text
+            question_entry.insert(0, question_text)
             question_entry.grid(row=i+1, column=1, sticky="ew")
 
             options = []
-            correct_answer_var = IntVar(self.create_quiz_window, value=question_data[-1])  # This should be unique for each question
-            for j in range(4):
+            correct_answer_var = IntVar(self.create_quiz_window, value=correct_answer)
+            for j, option_text in enumerate(options_texts):
                 option_entry = Entry(self.create_quiz_window)
-                option_entry.insert(0, question_data[j+1])  # Set option text
+                option_entry.insert(0, option_text)
                 option_entry.grid(row=i+1, column=j+2, sticky="ew")
                 options.append(option_entry)
 
-        # Create a radio button for each option
-                Radiobutton(self.create_quiz_window, text=f"{j+1}", variable=correct_answer_var, value=j+1).grid(row=i+1, column=j+6)
+                # Create a radio button for each option
+                Radiobutton(self.create_quiz_window, text=str(j+1), variable=correct_answer_var, value=j+1).grid(row=i+1, column=j+6)
 
             self.questions.append((question_id, question_entry, options, correct_answer_var))
 
@@ -547,6 +570,7 @@ class QuizApp:
         # Commit the transaction if everything is successful
         db.commit()
         messagebox.showinfo("Success", "The quiz has been updated successfully.")
+        self.update_quiz_combobox()
     except mysql.connector.Error as err:
         # Rollback if there are any errors
         db.rollback()
@@ -592,20 +616,7 @@ class QuizApp:
         db.rollback()
         messagebox.showerror("Delete Quiz", f"An error occurred: {e}")
 
-   def update_quiz_combobox(self):
-
-    # Fetch updated list of quizzes
-    mycursor.execute("SELECT quiz_id, title FROM quizzes WHERE user_id = %s", (self.user_id,))
-    self.custom_quizzes = mycursor.fetchall()
-    
-    # Clear the previous map and repopulate it with the new values
-    self.quiz_title_id_map.clear()
-    for quiz_id, title in self.custom_quizzes:
-        self.quiz_title_id_map[title] = quiz_id
-
-    # Set the combobox to display only quiz titles
-    self.quiz_combobox['values'] = [title for _, title in self.custom_quizzes]
-    self.quiz_combobox.set('')        
+           
 
 
         # This method will allow the user to make their own quiz
@@ -713,7 +724,6 @@ class QuizApp:
 
         # Commit the transaction if everything is successful
         db.commit()
-        self.update_quiz_combobox() #Update the dropdown menu
         messagebox.showinfo("Success", "The new quiz has been saved.")
     except mysql.connector.Error as err:
         messagebox.showerror("Database Error", f"Failed to save quiz: {err}")
@@ -721,8 +731,7 @@ class QuizApp:
         db.rollback()
     finally:
         # Close the quiz creation window
-        self.create_quiz_window.destroy()
-            
+        self.create_quiz_window.destroy()    
 
 
    def start_selected_custom_quiz(self):
@@ -850,7 +859,6 @@ class QuizApp:
     FROM scores s
     INNER JOIN quizzes q ON s.quiz_id = q.quiz_id
     WHERE s.user_id = %s 
-    ORDER BY s.score_id DESC
     """, (user_id,))
     return mycursor.fetchall()  # This will return a list of tuples (quiz_title, score)  
    
