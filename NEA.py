@@ -11,8 +11,7 @@ from PIL import Image, ImageTk
 db, mycursor = setup_database()
 
 
-
-
+#Create a tooltip for a given widget as the mouse goes on it.
 class ToolTip(object):
     """
     Create a tooltip for a given widget as the mouse goes on it.
@@ -72,7 +71,7 @@ class QuizApp:
        self.master.geometry("300x250")
        self.master.title("Quiz")
        
-       # Initialise instance variables
+       # Initialise instance variables  
 
        #username of user currently logged in
        self.name = ""
@@ -82,6 +81,11 @@ class QuizApp:
 
        #marks obtained in each quiz, it's reset at the end of every quiz
        self.mark = []
+
+       self.previous_questions = []  # Stack to hold previous questions     
+       self.current_question = None  # Current active question
+       self.question_index = 0    
+       self.question_scores = []  
 
 
        # Create and display labels and buttons on the main screen
@@ -479,67 +483,75 @@ class QuizApp:
             self.start_quiz(quiz_id)   
 
    def start_quiz(self, quiz_id):
+        self.current_quiz_id = quiz_id
         mycursor.execute("SELECT question_text, option_1, option_2, option_3, option_4, correct_option FROM questions WHERE quiz_id = %s", (quiz_id,))
         self.questions = mycursor.fetchall()
-        self.mark = [] # Reset the mark list
+        self.mark = [0] * len(self.questions)  # Initialize scores for all questions
+        self.question_scores = [None] * len(self.questions)  # Initialize answer tracking
         self.question_index = 0
         self.load_question(self.question_index)
         self.assignments_window.destroy()
         menu.withdraw()
 
 
-
    def load_question(self, question_index):
-    self.current_question = self.questions[question_index]
-    print(self.current_question)
-    
-    if hasattr(self, 'quiz'):
-        self.quiz.destroy()
-    
-    self.quiz = Toplevel()
-    self.quiz.geometry("1100x250")
-    self.quiz.title("Quiz Question")
-    
-    
-    self.var = StringVar(value=self.current_question[0])
-    Label(self.quiz, textvariable=self.var, width="250", height="2", font=("Verdana", 13)).pack()
-    
-    self.var1 = IntVar()
-    Label(self.quiz, text="Select an answer:").pack(anchor='w')
-    
-    # Create radio buttons for answer choices
-    self.buttons = []
-    for i in range(1, 5):
-        button = Radiobutton(self.quiz, text=self.current_question[i], variable=self.var1, value=i)
-        button.pack(anchor='w')
-        self.buttons.append(button)
-    Button(self.quiz, text="Submit", height="2", bg="DeepSkyBlue3", fg="black", width="30", command=self.submit).pack()
+        if hasattr(self, 'quiz'):
+            self.quiz.destroy()
+        
+        self.quiz = Toplevel()
+        self.quiz.geometry("1100x250")
+        self.quiz.title("Quiz Question")
+        
+        self.current_question = self.questions[question_index]
+        self.question_index = question_index
 
-    #This is to ensure that the user closing the quiz window doesn't mess with the marks list, and gracefully terminates the program
-    self.quiz.protocol("WM_DELETE_WINDOW", self.close_application)
+        # Set up the question text and options
+        question_text = self.current_question[0]
+        options = self.current_question[1:5]
+        correct_option = self.current_question[5]
 
+        self.var = StringVar(value=question_text)
+        Label(self.quiz, textvariable=self.var, width="250", height="2", font=("Verdana", 13)).pack()
+        
+        self.var1 = IntVar(value=self.question_scores[question_index] if self.question_scores[question_index] is not None else 0)
+        Label(self.quiz, text="Select an answer:").pack(anchor='w')
 
+        for i, option in enumerate(options, start=1):
+            Radiobutton(self.quiz, text=option, variable=self.var1, value=i).pack(anchor='w')
+
+        Button(self.quiz, text="Submit", height="2", bg="DeepSkyBlue3", fg="black", width="30", command=self.submit).pack()
+
+        if question_index > 0:
+            Button(self.quiz, text="Back", height="2", bg="IndianRed1", fg="black", width="30", command=self.go_back).pack(pady=5)
+        
+        self.quiz.protocol("WM_DELETE_WINDOW", self.close_application)
+
+   def go_back(self):
+    if self.previous_questions:
+        last_question_index = self.previous_questions.pop()  # Pop only the index from the stack
+        self.load_question(last_question_index)
 
    # Define a method to submit quiz answers, which checks whether the answers submitted are right or wrong
    def submit(self):
     selected_option = self.var1.get()
-    print(selected_option)
-    correct_option = self.current_question[5]
-    
-    # Handling no chosen answer
     if selected_option == 0:
         messagebox.showwarning("No Selection", "Please select an option.")
         return
     
-    if int(selected_option) == correct_option:
-        self.mark.append(20)  # Add points to the mark list
-    
-    self.question_index += 1
-    if self.question_index < len(self.questions):
-        self.load_question(self.question_index)  # Load the next question
+    # Update score and selected option tracking
+    if selected_option == self.current_question[5]:
+        self.mark[self.question_index] = 20  # Assume each question scores 20 points
     else:
-        self.finalize_quiz()  # End the quiz when all questions have been answered
+        self.mark[self.question_index] = 0
+    
+    self.question_scores[self.question_index] = selected_option
 
+    # Navigate to next question or finalize quiz
+    if self.question_index < len(self.questions) - 1:
+        self.previous_questions.append(self.question_index)  # Push only the index onto the stack
+        self.load_question(self.question_index + 1)
+    else:
+        self.finalize_quiz()
 
    def finalize_quiz(self):
     total_score = sum(self.mark)
@@ -547,7 +559,7 @@ class QuizApp:
     self.quiz.destroy()  # Close the quiz window
 
     try:
-        mycursor.execute("INSERT INTO scores (user_id, score) VALUES (%s, %s)", (self.user_id, total_score))
+        mycursor.execute("INSERT INTO scores (user_id, quiz_id, score) VALUES (%s, %s, %s)", (self.user_id,self.current_quiz_id, total_score))
         db.commit()
     except mysql.connector.Error as err:
         messagebox.showerror("Database Error", f"Failed to insert score: {err}")
@@ -579,53 +591,74 @@ class QuizApp:
     # Extract scores from query results
 
    def fetch_scores(self, user_id):
-    mycursor.execute("SELECT score FROM scores WHERE user_id = %s ORDER BY score_id DESC", (user_id,))
-    scores = mycursor.fetchall()
-    return [score[0] for score in scores]  
+    mycursor.execute("""
+    SELECT q.title, s.score 
+    FROM scores s
+    INNER JOIN quizzes q ON s.quiz_id = q.quiz_id
+    WHERE s.user_id = %s 
+    ORDER BY s.score_id DESC
+    """, (user_id,))
+    return mycursor.fetchall()  # This will return a list of tuples (quiz_title, score)  
    
    # Define a method to display a summary of previous scores
    def summary(self):
 
-    scores = self.fetch_scores(self.user_id)
+    # Fetches list of tuples with (quiz_title, score)
+    scored_quizzes = self.fetch_scores(self.user_id)
+    scores = [score for _, score in scored_quizzes]
     average = sum(scores) / len(scores) if scores else 0
     summary_window = Toplevel()
-    summary_window.geometry("600x400")
+    summary_window.geometry("610x720")
     summary_window.title("Analytics")
-    
+
+    # Sort dropdown
     Label(summary_window, text="Sort by:", width=10, height=2, font=("Calibri", 12)).pack(side="top", anchor='nw')
 
     self.sort_var = StringVar()
     sort_options = ttk.Combobox(summary_window, width=10, textvariable=self.sort_var)
     sort_options['values'] = ('Ascending', 'Descending')
     sort_options.pack(side="top", anchor='nw')
-    sort_options.bind("<<ComboboxSelected>>", lambda event: self.update_display(scores, summary_window, average))
+    sort_options.bind("<<ComboboxSelected>>", lambda event: self.update_display(scored_quizzes, summary_window, average))
 
-    self.update_display(scores, summary_window, average)
+    # Initial display update
+    self.update_display(scored_quizzes, summary_window, average)
 
-    # This method will be used for ordering the scores according to the user's choice
+   def on_sort_selection(self, scored_quizzes, window, average):
+        self.update_display(self.merge_sort(scored_quizzes, self.sort_var.get() == 'Ascending'), window, average)
+    
+    
+    # This method will be used for ordering the scores according to the user's choice, using merge sort
+
    def merge_sort(self, scores, ascending=True):
-    # Check if the list is longer than 1 element, which is necessary to perform a split.
+    # Check if the list is longer than 1 element, else return the list as it is.
     if len(scores) > 1:
         # Find the midpoint of the list to divide it into two halves.
         mid = len(scores) // 2
         left_half = scores[:mid]  
         right_half = scores[mid:]  
 
+        # Use of recursion to sort both halves
         self.merge_sort(left_half, ascending)
         self.merge_sort(right_half, ascending)
 
-        # Initialize pointers for left_half (i), right_half (j), and scores (k).
         i = j = k = 0
 
-        # Merge the two halves back into the main list in a sorted order.
+        # Merge the two halves back into scores
         while i < len(left_half) and j < len(right_half):
-            # Compare the elements from each half and insert the smaller (or larger, if descending) element first.
-            if (left_half[i] < right_half[j]) == ascending:
-                scores[k] = left_half[i]
-                i += 1
+            if ascending:
+                if left_half[i][1] < right_half[j][1]:
+                    scores[k] = left_half[i]
+                    i += 1
+                else:
+                    scores[k] = right_half[j]
+                    j += 1
             else:
-                scores[k] = right_half[j]
-                j += 1
+                if left_half[i][1] > right_half[j][1]:
+                    scores[k] = left_half[i]
+                    i += 1
+                else:
+                    scores[k] = right_half[j]
+                    j += 1
             k += 1
 
         # If there are remaining elements in left_half, add them to the scores list.
@@ -644,47 +677,57 @@ class QuizApp:
     return scores
 
 
-   def update_display(self, scores, window, average):
-        sort_order = self.sort_var.get()
-        sorted_scores = self.merge_sort(scores.copy(), ascending=(sort_order == "Ascending"))
+   def update_display(self, scored_quizzes, window, average):
+    sort_order = self.sort_var.get()
+    self.merge_sort(scored_quizzes, ascending=(sort_order == "Ascending"))
 
-        for widget in window.pack_slaves():
-            if isinstance(widget, Label) or isinstance(widget, Canvas) or isinstance(widget, Frame):
-                widget.destroy()
+    for widget in window.pack_slaves():
+        widget.destroy()
 
-        Label(window, text="Here is a list of all your previous scores:", width="300", height="2",
-            font=("Calibri", 13)).pack()
-        Label(window, text=sorted_scores, width="300", height="2", font=("Calibri", 13)).pack()
-        Label(window, text="The average score is:", width="300", height="2", font=("Calibri", 13)).pack()
-        Label(window, text=f"{average:.2f}%", width="300", height="2", font=("Calibri", 13)).pack()
-        
-        # Re-create the graph frame for displaying the scores graphically
-        graph_frame = Frame(window)
-        graph_frame.pack()
-        self.show_grades_graph(sorted_scores, graph_frame)
+    content_frame = Frame(window)
+    content_frame.pack(fill="both", expand=True)
+
+    scores_frame = Frame(content_frame)
+    scores_frame.pack(side="left", fill="y")
+
+    Label(scores_frame, text="Scores:", font=("Calibri", 13, "bold")).pack(anchor="w")
+    for index, (quiz_title, score) in enumerate(scored_quizzes):
+        Label(scores_frame, text=f"{quiz_title}: {score}%", font=("Calibri", 13)).pack(anchor="w")
+
+    graph_frame = Frame(content_frame)
+    graph_frame.pack(side="left", fill="both", expand=True)
+
+    # Average score label, moved to the top-right
+    avg_score_label = Label(graph_frame, text=f"Average score: {average:.2f}%", font=("Calibri", 13, "bold"))
+    avg_score_label.pack(side="top", anchor='e')
+
+    self.show_grades_graph(scored_quizzes, graph_frame)
+
 
    # Define a method to display a bar graph of scores
-   def show_grades_graph(self, grades, frame):
-       WIDTH = str(len(grades) * 100)
-       canvas = Canvas(frame, width=int(WIDTH), height=300)
-       canvas.pack()
+   def show_grades_graph(self, scored_quizzes, frame):
+    # Determine graph width based on the number of scores
+    graph_width = max(300, len(scored_quizzes) * 50)  # At least 300 pixels or dynamic based on scores
+    canvas = Canvas(frame, width=graph_width, height=300)
+    canvas.pack(side="top", fill="x", expand=True)
 
+    bar_width = 55
+    padding = 20
+    spacing = 10
+    max_score = max(score for _, score in scored_quizzes) if scored_quizzes else 1
 
-       bar_width = 50
-       x_start = 50
-       y_scale = 2
+    for i, (quiz_title, score) in enumerate(scored_quizzes):
+        x1 = padding + i * (bar_width + spacing)
+        y1 = 280 - (score / max_score) * 250  # Scale score to canvas height
+        x2 = x1 + bar_width
+        y2 = 280  # Base line for scores
+        canvas.create_rectangle(x1, y1, x2, y2, fill="blue")
+        canvas.create_text(x1 + bar_width / 2, y1 - 10, text=f"{score}%", anchor="s")
+        canvas.create_text(x1 + bar_width / 2, y2 + 10, text=quiz_title, anchor="n", width=bar_width)
 
-
-       for i, grade in enumerate(grades):
-           x = x_start + i * (bar_width + 20)
-           y = 200 - grade * y_scale
-           canvas.create_rectangle(x, y, x + bar_width, 200, fill="blue")
-           canvas.create_text(x + bar_width / 2, y - 10, text=str(grade))
-
-
-       canvas.create_text(20, 175, text="Grades", angle=90)
-   
-
+    canvas.create_line(padding, 280, graph_width - padding, 280)  # Base line for graph
+    canvas.create_text(padding, 280, text="0%", anchor="s", angle=90)
+    canvas.create_text(padding, 30, text=f"{max_score}%", anchor="s", angle=90)
 
 
 # Check if the script is being run directly
