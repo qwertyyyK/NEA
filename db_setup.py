@@ -1,10 +1,14 @@
+#This .py file is used to create the database and tables for the quiz app, it also inserts the preloaded quizzes into the database
+
+
+
 import mysql.connector
 import csv
 
 def create_db_connection():
     return mysql.connector.connect(
         host="localhost",
-        user="root",
+        user="root",           # Change this to your MySQL details
         passwd="kareem2478",
     )
 
@@ -12,6 +16,7 @@ def create_database(cursor):
     cursor.execute("CREATE DATABASE IF NOT EXISTS mydb;")
     cursor.execute("USE mydb;")
 
+ #Method for creating the tables in the database, it creates the users, scores, quizzes and questions tables (If they don't already exist)
 def create_tables(cursor):
     users_table = """
     CREATE TABLE IF NOT EXISTS users (
@@ -22,11 +27,13 @@ def create_tables(cursor):
     """
 
     scores_table = """
-    CREATE TABLE IF NOT EXISTS scores (
+        CREATE TABLE IF NOT EXISTS scores (
         score_id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT,
+        quiz_id INT,
         score INT,
-        FOREIGN KEY (user_id) REFERENCES users(user_id)
+        FOREIGN KEY (user_id) REFERENCES users(user_id),
+        FOREIGN KEY (quiz_id) REFERENCES quizzes(quiz_id)
     );
     """
 
@@ -56,16 +63,18 @@ def create_tables(cursor):
     """
 
     cursor.execute(users_table)
-    cursor.execute(scores_table)
     cursor.execute(quizzes_table)
+    cursor.execute(scores_table)
     cursor.execute(questions_table)
     
+    #These csv files contain the preloaded quizzes that comes with the app
 def read_csv(file_path):
     with open(file_path, newline='', encoding='utf-8') as f:
         reader = csv.reader(f)
         next(reader)  # Skip the header row
         return list(reader)
 
+    #Method for inserting data into the database, it checks if the quiz_id is already in the database and if not it inserts it
 def check_and_insert_data(cursor, quizzes_path, questions_path):
     # Check existing quiz_ids 1 to 4
     cursor.execute("SELECT quiz_id FROM quizzes WHERE quiz_id BETWEEN 1 AND 4")
@@ -89,11 +98,13 @@ def check_and_insert_data(cursor, quizzes_path, questions_path):
     # Find which question IDs in the range 1 to 20 are missing from the database
     cursor.execute("SELECT question_id FROM questions WHERE question_id BETWEEN 1 AND 20")
     existing_question_ids = {row[0] for row in cursor.fetchall()}
+    # Calculate the set of missing question IDs by comparing with the full set of IDs from 1 to 20
     missing_ids = set(range(1, 21)).difference(existing_question_ids)
 
     # Insert missing question data
     for row in questions_data:
         question_id = int(row[0])
+        # Check if the current question ID is one of the missing ones
         if question_id in missing_ids:
             cursor.execute("""
             INSERT INTO questions (question_id, quiz_id, question_text, option_1, option_2, option_3, option_4, correct_option)
