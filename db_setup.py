@@ -13,8 +13,8 @@ def create_db_connection():
     )
 
 def create_database(cursor):
-    cursor.execute("CREATE DATABASE IF NOT EXISTS mydb;")
-    cursor.execute("USE mydb;")
+    cursor.execute("CREATE DATABASE IF NOT EXISTS quiz_app;")
+    cursor.execute("USE quiz_app;")
 
  #Method for creating the tables in the database, it creates the users, scores, quizzes and questions tables (If they don't already exist)
 def create_tables(cursor):
@@ -50,7 +50,7 @@ def create_tables(cursor):
 
     questions_table = """
     CREATE TABLE IF NOT EXISTS questions (
-        question_id INT PRIMARY KEY,
+        question_id INT AUTO_INCREMENT PRIMARY KEY,
         quiz_id INT,
         question_text TEXT NOT NULL,
         option_1 VARCHAR(255) NOT NULL,
