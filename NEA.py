@@ -273,7 +273,7 @@ class QuizApp:
    # Define a method to handle an invalid password
    def password_not_recognised(self):
        # Create a new window for displaying an error message
-       messagebox.showerror("Error," "Incorrect password")
+       messagebox.showerror("Error", "Incorrect password")
 
 
 
@@ -327,9 +327,10 @@ class QuizApp:
                    command=lambda q_id=quiz[0]: self.start_quiz(q_id)).pack(pady=5)
 
         # Separator label for custom quizzes
-        Label(self.assignments_window, text="Or select a custom quiz:", height="2").pack()
+        Label(self.assignments_window, text="Or select a user made quiz:", height="2").pack()
 
         # Fetch custom quiz topics from the database for the dropdown, which are either public or created by the own user
+
         mycursor.execute(
         "SELECT quiz_id, title FROM quizzes WHERE user_id = %s OR is_public = 1 ORDER BY quiz_id ASC",
         (self.user_id,)
@@ -486,7 +487,9 @@ class QuizApp:
                         "The rest are for the options.\n"
                         "\n"
                         "Select the correct answer using the buttons on the right.\n"
-                        "For instance if the correct answer is option 2, select the button labeled '2'.")
+                        "For instance if the correct answer is option 2, select the button labeled '2'\n."
+                        "\n"
+                        "At the bottom, you could choose to make the quiz private or publicly available to other users acessing the same database")
         ToolTip(help_label, text=tooltip_text)
 
         self.questions = []  # Reset the questions list to populate with existing questions
@@ -651,7 +654,9 @@ class QuizApp:
                         "The rest are for the options.\n"
                         "\n"
                         "Select the correct answer using the buttons on the right.\n"
-                        "For instance if the correct answer is option 2, select the button labeled '2'.")
+                        "For instance if the correct answer is option 2, select the button labeled '2'.\n"
+                        "\n"
+                        "At the bottom, you could choose to make the quiz private or publicly available to other users acessing the same database")
         ToolTip(help_label, text=tooltip_text)
 
         self.questions = []  # This will hold the question and options entries
@@ -724,6 +729,7 @@ class QuizApp:
 
         # Commit the transaction if everything is successful
         db.commit()
+        self.update_quiz_combobox()
         messagebox.showinfo("Success", "The new quiz has been saved.")
     except mysql.connector.Error as err:
         messagebox.showerror("Database Error", f"Failed to save quiz: {err}")
@@ -854,21 +860,39 @@ class QuizApp:
     # Extract scores from query results
 
    def fetch_scores(self, user_id):
+    #Use of inner join to fetch the quiz name associated with each score
     mycursor.execute("""
     SELECT q.title, s.score 
     FROM scores s
-    INNER JOIN quizzes q ON s.quiz_id = q.quiz_id
+    INNER JOIN quizzes q ON s.quiz_id = q.quiz_id      
     WHERE s.user_id = %s 
     """, (user_id,))
     return mycursor.fetchall()  # This will return a list of tuples (quiz_title, score)  
    
+
+   def fetch_average_score(self, user_id):
+        # SQL query to calculate the average score directly
+        mycursor.execute("""
+        SELECT AVG(score) AS average_score
+        FROM scores
+        WHERE user_id = %s
+        """, (user_id,))
+        average = mycursor.fetchone()[0]
+        return average if average is not None else 0
+
    # Define a method to display a summary of previous scores
    def summary(self):
 
     # Fetches list of tuples with (quiz_title, score)
     scored_quizzes = self.fetch_scores(self.user_id)
-    scores = [score for _, score in scored_quizzes]
-    average = sum(scores) / len(scores) if scores else 0
+    
+    # User shouldn't be able to access analytics if they haven't completed any quizzes
+    if not scored_quizzes:
+        messagebox.showinfo("Analytics Unavailable", "You have not completed any quizzes yet.")
+        return
+    else:
+        average = self.fetch_average_score(self.user_id)
+
     summary_window = Toplevel()
     summary_window.geometry("610x720")
     summary_window.title("Analytics")
