@@ -398,8 +398,8 @@ class QuizApp:
         self.quiz_combobox['values'] = combobox_values
         self.quiz_combobox.set('')
 
-        # This method will be used to update the quiz combobox dynamically in the same window
-
+    
+    # This method will be used to update the quiz combobox dynamically in the same window
    def update_quiz_combobox(self):
 
     # Fetch updated list of quizzes
@@ -594,30 +594,33 @@ class QuizApp:
     selected_quiz_id = self.quiz_title_id_map.get(selected_title)
     print(selected_title)
 
+    response = messagebox.askyesno("Delete Quiz", f"Are you sure you want to delete the quiz '{selected_title}'?")
+    if response:
+        try:
 
-    # Begin transaction
-    mycursor.execute("START TRANSACTION;")
+            # Begin transaction
+            mycursor.execute("START TRANSACTION;")
 
-    try:
-        # Delete related scores
-        mycursor.execute("DELETE FROM scores WHERE quiz_id = %s", (selected_quiz_id,))
         
-        # Delete related questions
-        mycursor.execute("DELETE FROM questions WHERE quiz_id = %s", (selected_quiz_id,))
-        
-        # Delete the quiz
-        mycursor.execute("DELETE FROM quizzes WHERE quiz_id = %s", (selected_quiz_id,))
-        
-        db.commit()
-        
-        self.update_quiz_combobox()
+            # Delete related scores
+            mycursor.execute("DELETE FROM scores WHERE quiz_id = %s", (selected_quiz_id,))
+            
+            # Delete related questions
+            mycursor.execute("DELETE FROM questions WHERE quiz_id = %s", (selected_quiz_id,))
+            
+            # Delete the quiz
+            mycursor.execute("DELETE FROM quizzes WHERE quiz_id = %s", (selected_quiz_id,))
+            
+            db.commit()
+            
+            self.update_quiz_combobox()
 
         # Show confirmation message
-        messagebox.showinfo("Delete Quiz", "Quiz and associated data deleted successfully.")
-    except Exception as e:
-        # Rollback in case of error
-        db.rollback()
-        messagebox.showerror("Delete Quiz", f"An error occurred: {e}")
+            messagebox.showinfo("Delete Quiz", "Quiz and associated data deleted successfully.")
+        except Exception as e:
+            # Rollback in case of error
+            db.rollback()
+            messagebox.showerror("Delete Quiz", f"An error occurred: {e}")
 
            
 
@@ -682,7 +685,7 @@ class QuizApp:
         for j in range(10):
             self.create_quiz_window.grid_columnconfigure(j, weight=1)
 
-        # Adjust the window's row and column configuration for proper spacing
+        
         self.create_quiz_window.grid_rowconfigure(0, weight=1)
         for i in range(1, 6):
             self.create_quiz_window.grid_rowconfigure(i, weight=3)
@@ -893,24 +896,52 @@ class QuizApp:
     else:
         average = self.fetch_average_score(self.user_id)
 
-    summary_window = Toplevel()
-    summary_window.geometry("610x720")
-    summary_window.title("Analytics")
+    self.summary_window = Toplevel()
+    self.summary_window.geometry("720x720")
+    self.summary_window.title("Analytics")
 
-    # Sort dropdown
-    Label(summary_window, text="Sort by:", width=10, height=2, font=("Calibri", 12)).pack(side="top", anchor='nw')
+    # Create and pack the sort label
+    self.sort_label = Label(self.summary_window, text="Sort by:", width=10, height=2, font=("Calibri", 12))
+    self.sort_label.pack(side="top", anchor='nw')
 
-    self.sort_var = StringVar()
-    sort_options = ttk.Combobox(summary_window, width=10, textvariable=self.sort_var)
-    sort_options['values'] = ('Ascending', 'Descending')
-    sort_options.pack(side="top", anchor='nw')
-    sort_options.bind("<<ComboboxSelected>>", lambda event: self.update_display(scored_quizzes, summary_window, average))
+    # Create and pack the sort options combobox
+    self.sort_var = StringVar(value=None)
+    self.sort_options = ttk.Combobox(self.summary_window, width=12, textvariable=self.sort_var)
+    self.sort_options['values'] = ('None',  'Ascending', 'Descending')
+    self.sort_options.pack(side="top", anchor='nw')
+    self.sort_options.bind("<<ComboboxSelected>>", lambda event: self.update_display(scored_quizzes, self.summary_window, average))
 
+    self.delete_button = Button(self.summary_window, text="Delete All Stats", command=self.confirm_delete)
+    self.delete_button.pack(side="bottom", pady=20)
     # Initial display update
-    self.update_display(scored_quizzes, summary_window, average)
+    self.update_display(scored_quizzes, self.summary_window, average, sorted=False)
 
+
+
+
+   def confirm_delete(self):
+    # Confirmation dialog
+    response = messagebox.askyesno("Confirm Deletion", "Are you sure you want to delete all your stats? This action cannot be undone.")
+    if response:
+        self.delete_all_stats()
+
+   def delete_all_stats(self):
+        try:
+            mycursor.execute("DELETE FROM scores WHERE user_id = %s", (self.user_id,))
+            db.commit()
+            print("Deleting all stats...")
+            self.summary_window.destroy()
+            messagebox.showinfo("Deletion Complete", "All your stats have been successfully deleted.")
+        except mysql.connector.Error as err:
+            messagebox.showerror("Deletion Error", "Failed to delete all stats.")   
+
+    
    def on_sort_selection(self, scored_quizzes, window, average):
-        self.update_display(self.merge_sort(scored_quizzes, self.sort_var.get() == 'Ascending'), window, average)
+        sort_order = self.sort_var.get()
+        if sort_order == 'None':
+            self.update_display(scored_quizzes, window, average, sorted=False)
+        else:
+            self.update_display(scored_quizzes, window, average, sorted=True)
     
     
     # This method will be used for ordering the scores according to the user's choice, using merge sort
@@ -963,12 +994,15 @@ class QuizApp:
     return scores
 
 
-   def update_display(self, scored_quizzes, window, average):
-    sort_order = self.sort_var.get()
-    self.merge_sort(scored_quizzes, ascending=(sort_order == "Ascending"))
+   def update_display(self, scored_quizzes, window, average, sorted=True):
+    if sorted:
+        sort_order = self.sort_var.get()
+        if sort_order in ['Ascending', 'Descending']:
+            self.merge_sort(scored_quizzes, ascending=(sort_order == "Ascending"))
 
     for widget in window.pack_slaves():
-        widget.destroy()
+        if widget not in [self.sort_options, self.sort_label, self.delete_button]:
+            widget.destroy()
 
     content_frame = Frame(window)
     content_frame.pack(fill="both", expand=True)
