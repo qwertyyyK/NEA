@@ -1,4 +1,4 @@
-#This .py file is used to create the database and tables for the quiz app, it also inserts the preloaded quizzes into the database
+#This .py file is used to create the database and tables for the quiz app, it also inserts the preloaded quizzes into the database (Given that they don't exist already)
 
 
 
